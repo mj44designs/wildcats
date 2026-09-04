@@ -237,7 +237,14 @@ function importData(file){
   reader.readAsText(file);
 }
 
+/* ---------- Editing is gated behind ?edit=1 in the URL ----------
+   This is a UI-level hide, not real security — there's no login system
+   on a static site like this. It just keeps the "Edit Data" button from
+   ever appearing (or doing anything) for anyone using the plain link. */
+const EDIT_ENABLED = new URLSearchParams(window.location.search).get("edit") === "1";
+
 document.getElementById("editToggleBtn").onclick = () => {
+  if (!EDIT_ENABLED) return;
   editMode = !editMode;
   seasonFormMode = null; gameFormMode = null; gameFormEditingId = null; boxRowEditing = null;
   statRowEditing = null; recordEditing = false;
@@ -878,11 +885,17 @@ async function init(){
   rebuildSeasons();
   renderAll();
 
-  document.getElementById("exportBtn").onclick = exportData;
-  document.getElementById("importInput").onchange = (e) => {
-    const file = e.target.files[0];
-    if (file) importData(file);
-    e.target.value = "";
-  };
+  if (!EDIT_ENABLED) {
+    document.getElementById("editToggleBtn").style.display = "none";
+    const backupBar = document.querySelector(".backup-bar");
+    if (backupBar) backupBar.style.display = "none";
+  } else {
+    document.getElementById("exportBtn").onclick = exportData;
+    document.getElementById("importInput").onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) importData(file);
+      e.target.value = "";
+    };
+  }
 }
 init();
