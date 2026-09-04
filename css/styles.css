@@ -142,6 +142,8 @@
     display:flex; align-items:center; gap:0.8rem; flex-wrap:wrap;
   }
   .season-summary b{color:var(--navy);}
+  .record-edit{display:flex; gap:0.5rem; align-items:center;}
+  .record-edit input{width:52px;}
 
   /* ---------- Table ---------- */
   .table-wrap{ overflow-x:auto; border:1px solid var(--chalk-line); border-radius:4px; background:#fff; }
