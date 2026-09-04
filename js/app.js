@@ -128,6 +128,8 @@ let gameFormMode = null;      // null | "new" | "edit"
 let gameFormEditingId = null;
 let expandedGameId = null;
 let boxRowEditing = null;     // player name being edited within a box score, or "__new__"
+let statRowEditing = null;    // player name being edited directly in the season roster table
+let recordEditing = false;    // editing the season's manual win-loss record
 
 function computeDerived(p){
   const avg = p.ab > 0 ? p.h / p.ab : 0;
@@ -138,11 +140,17 @@ function fmtAvg(x){ if (!isFinite(x)) return ".000"; return x.toFixed(3).replace
 function genId(){ return "g" + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 function gameResult(g){ return g.teamScore > g.oppScore ? "W" : g.teamScore < g.oppScore ? "L" : "T"; }
 
-function aggregateSeason(games, roster){
-  let wins=0, losses=0, ties=0;
+function aggregateSeason(games, roster, manualTotals, manualRecord){
+  manualTotals = manualTotals || {};
+  manualRecord = manualRecord || { wins:0, losses:0, ties:0 };
+  let wins = manualRecord.wins||0, losses = manualRecord.losses||0, ties = manualRecord.ties||0;
   const totals = {};
   (roster||[]).forEach(name => {
     totals[name] = { name, ab:0,h:0,hr:0,rbi:0,r:0,bb:0,sb:0 };
+  });
+  Object.keys(manualTotals).forEach(name => {
+    if (!totals[name]) totals[name] = { name, ab:0,h:0,hr:0,rbi:0,r:0,bb:0,sb:0 };
+    PLAYER_FIELDS.forEach(f => totals[name][f] += (manualTotals[name][f]||0));
   });
   games.forEach(g => {
     const r = gameResult(g);
@@ -161,9 +169,11 @@ function rebuildSeasons(){
     .sort((a,b) => a.year - b.year)
     .map(s => {
       const roster = s.roster || [];
+      const manualTotals = s.manualTotals || {};
+      const manualRecord = s.manualRecord || { wins:0, losses:0, ties:0 };
       const gamesSorted = s.games.slice().sort((a,b) => b.date.localeCompare(a.date));
-      const agg = aggregateSeason(s.games, roster);
-      return { year: s.year, games: gamesSorted, roster, ...agg };
+      const agg = aggregateSeason(s.games, roster, manualTotals, manualRecord);
+      return { year: s.year, games: gamesSorted, roster, manualTotals, manualRecord, ...agg };
     });
   if (!seasons.find(s => s.year === activeYear)) {
     activeYear = seasons.length ? seasons[seasons.length - 1].year : null;
@@ -230,6 +240,7 @@ function importData(file){
 document.getElementById("editToggleBtn").onclick = () => {
   editMode = !editMode;
   seasonFormMode = null; gameFormMode = null; gameFormEditingId = null; boxRowEditing = null;
+  statRowEditing = null; recordEditing = false;
   renderAll();
 };
 
@@ -261,6 +272,7 @@ function renderYearTabs(){
     btn.onclick = () => {
       activeYear = s.year; expandedPlayer = null; expandedGameId = null;
       seasonFormMode = null; gameFormMode = null; boxRowEditing = null;
+      statRowEditing = null; recordEditing = false;
       renderAll();
     };
     tabWrap.appendChild(btn);
@@ -376,14 +388,65 @@ function renderSeasonSummary(){
   const s = seasons.find(s => s.year === activeYear);
   const box = document.getElementById("seasonSummary");
   if (!s) { box.innerHTML = "No seasons yet — use \u201cEdit Data\u201d to add one."; return; }
+
+  if (recordEditing) {
+    const mr = s.manualRecord || { wins:0, losses:0 };
+    box.innerHTML = `
+      <b>${s.year} record</b>
+      <span class="record-edit">
+        W <input class="field" id="editWins" type="number" min="0" value="${mr.wins||0}">
+        L <input class="field" id="editLosses" type="number" min="0" value="${mr.losses||0}">
+        <button class="btn small primary" id="saveRecordBtn">Save</button>
+        <button class="btn small" id="cancelRecordBtn">Cancel</button>
+      </span>
+      <span class="section-note">plus any wins/losses from logged games (${s.games.length} logged)</span>
+    `;
+    document.getElementById("saveRecordBtn").onclick = () => {
+      const wins = parseInt(document.getElementById("editWins").value, 10) || 0;
+      const losses = parseInt(document.getElementById("editLosses").value, 10) || 0;
+      const target = rawData.seasons.find(x => x.year === s.year);
+      target.manualRecord = { wins, losses, ties: (target.manualRecord && target.manualRecord.ties) || 0 };
+      recordEditing = false;
+      rebuildSeasons(); saveState(); renderAll();
+    };
+    document.getElementById("cancelRecordBtn").onclick = () => { recordEditing = false; renderSeasonSummary(); };
+    return;
+  }
+
   const totalAB = s.players.reduce((a,p) => a + p.ab, 0);
   const totalH = s.players.reduce((a,p) => a + p.h, 0);
   const teamAvg = totalAB ? totalH/totalAB : 0;
   const record = s.ties ? `${s.wins}-${s.losses}-${s.ties}` : `${s.wins}-${s.losses}`;
-  box.innerHTML = `<b>${s.year}</b> &middot; ${record} &middot; team AVG <b>${fmtAvg(teamAvg)}</b> &middot; ${s.players.length} players &middot; ${s.games.length} games logged`;
+  box.innerHTML = `<b>${s.year}</b> &middot; ${record} &middot; team AVG <b>${fmtAvg(teamAvg)}</b> &middot; ${s.players.length} players &middot; ${s.games.length} games logged` +
+    (editMode ? ` <button class="btn small" id="editRecordBtn">Edit Record</button>` : "");
+  if (editMode) {
+    document.getElementById("editRecordBtn").onclick = () => { recordEditing = true; renderSeasonSummary(); };
+  }
 }
 
-/* ---------- Roster table (derived stats, with roster add/remove) ---------- */
+/* ---------- Direct season-stat input row (no game required) ---------- */
+function seasonStatInputRow(v){
+  return `
+    <td style="font-family:'Source Serif 4', serif; font-weight:600; color:var(--navy);">${v.name}</td>
+    <td><input class="field" data-f="ab" type="number" min="0" value="${v.ab}"></td>
+    <td><input class="field" data-f="h" type="number" min="0" value="${v.h}"></td>
+    <td>—</td>
+    <td><input class="field" data-f="hr" type="number" min="0" value="${v.hr}"></td>
+    <td><input class="field" data-f="rbi" type="number" min="0" value="${v.rbi}"></td>
+    <td><input class="field" data-f="r" type="number" min="0" value="${v.r}"></td>
+    <td><input class="field" data-f="bb" type="number" min="0" value="${v.bb}"></td>
+    <td>—</td>
+    <td><input class="field" data-f="sb" type="number" min="0" value="${v.sb}"></td>
+  `;
+}
+function readSeasonStatInputs(tr){
+  const get = f => tr.querySelector(`[data-f="${f}"]`);
+  const obj = {};
+  PLAYER_FIELDS.forEach(f => { obj[f] = parseInt(get(f).value, 10) || 0; });
+  return obj;
+}
+
+/* ---------- Roster table (derived stats, with roster add/remove/edit) ---------- */
 function renderRoster(){
   const s = seasons.find(s => s.year === activeYear);
   const body = document.getElementById("rosterBody");
@@ -408,6 +471,25 @@ function renderRoster(){
   rows.forEach(p => {
     const tr = document.createElement("tr");
     if (expandedPlayer === p.name) tr.classList.add("expanded-row");
+
+    if (editMode && statRowEditing === p.name) {
+      const current = (s.manualTotals || {})[p.name] || { ab:0,h:0,hr:0,rbi:0,r:0,bb:0,sb:0 };
+      tr.innerHTML = seasonStatInputRow({ name: p.name, ...current }) + `<td class="actions-cell">
+        <button class="btn small primary" data-act="save">Save</button>
+        <button class="btn small" data-act="cancel">Cancel</button></td>`;
+      tr.querySelector('[data-act="save"]').onclick = () => {
+        const updated = readSeasonStatInputs(tr);
+        const target = rawData.seasons.find(x => x.year === s.year);
+        if (!target.manualTotals) target.manualTotals = {};
+        target.manualTotals[p.name] = updated;
+        statRowEditing = null;
+        rebuildSeasons(); saveState(); renderAll();
+      };
+      tr.querySelector('[data-act="cancel"]').onclick = () => { statRowEditing = null; renderRoster(); };
+      body.appendChild(tr);
+      return;
+    }
+
     tr.innerHTML = `
       <td class="clickable">${p.name}</td>
       <td>${p.ab}</td><td>${p.h}</td>
@@ -422,11 +504,16 @@ function renderRoster(){
     if (editMode) {
       const td = document.createElement("td");
       td.className = "actions-cell";
-      td.innerHTML = `<button class="btn small danger" data-act="del">Remove</button>`;
+      td.innerHTML = `<button class="btn small" data-act="stats">Edit Stats</button><button class="btn small danger" data-act="del">Remove</button>`;
+      td.querySelector('[data-act="stats"]').onclick = () => {
+        statRowEditing = p.name;
+        expandedPlayer = null;
+        renderRoster();
+      };
       td.querySelector('[data-act="del"]').onclick = () => {
         const hasStats = p.ab > 0 || p.h > 0 || p.hr > 0 || p.rbi > 0 || p.r > 0 || p.bb > 0 || p.sb > 0;
         const msg = hasStats
-          ? `Remove ${p.name} from the ${s.year} season? This deletes their stat line from every game this season — that can't be undone.`
+          ? `Remove ${p.name} from the ${s.year} season? This deletes their stats from every game and any directly-entered totals — that can't be undone.`
           : `Remove ${p.name} from the ${s.year} roster?`;
         if (confirm(msg)) {
           const target = rawData.seasons.find(x => x.year === s.year);
@@ -434,6 +521,7 @@ function renderRoster(){
           target.games.forEach(g => {
             g.playerStats = (g.playerStats||[]).filter(pl => pl.name !== p.name);
           });
+          if (target.manualTotals) delete target.manualTotals[p.name];
           if (expandedPlayer === p.name) expandedPlayer = null;
           rebuildSeasons(); saveState(); renderAll();
         }
