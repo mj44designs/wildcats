@@ -206,16 +206,39 @@ async function saveState(silent){
 
 /* ---------- Export / Import (JSON backups you can commit to the repo) ---------- */
 function exportData(){
-  const blob = new Blob([JSON.stringify(rawData, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  const stamp = new Date().toISOString().slice(0,10);
-  a.href = url;
-  a.download = `wildcats-stats-${stamp}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  try {
+    const blob = new Blob([JSON.stringify(rawData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0,10);
+    const filename = `wildcats-stats-${stamp}.json`;
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Revoking too soon can cancel the download in some browsers (notably
+    // Safari) — give it a beat to actually start before cleaning up.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showBackupNote(`Downloaded ${filename} — check your browser's downloads.`);
+  } catch (e) {
+    showBackupNote("Export failed: " + e.message, true);
+  }
+}
+
+let backupNoteTimer = null;
+function showBackupNote(text, isError){
+  const note = document.getElementById("backupNote");
+  if (!note) return;
+  note.textContent = text;
+  note.style.color = isError ? "var(--danger)" : "";
+  note.style.fontStyle = isError ? "normal" : "italic";
+  clearTimeout(backupNoteTimer);
+  backupNoteTimer = setTimeout(() => {
+    note.textContent = "Data is saved in this browser automatically. Back it up as a file whenever you like.";
+    note.style.color = "";
+    note.style.fontStyle = "italic";
+  }, 6000);
 }
 
 function importData(file){
@@ -230,8 +253,9 @@ function importData(file){
       rebuildSeasons();
       saveState();
       renderAll();
+      showBackupNote(`Imported ${file.name} successfully.`);
     } catch (e) {
-      alert("That doesn't look like a valid Wildcats stats export file.");
+      showBackupNote("That doesn't look like a valid Wildcats stats export file.", true);
     }
   };
   reader.readAsText(file);
