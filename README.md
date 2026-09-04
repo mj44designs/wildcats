@@ -116,12 +116,21 @@ wildcats-stats/
 ├── css/
 │   └── styles.css         all styling
 ├── js/
-│   └── app.js               app logic: rendering, editing, persistence
+│   ├── app.js               app logic: rendering, editing, persistence
+│   └── vendor/
+│       ├── chart.umd.js       Chart.js, bundled locally (no CDN dependency)
+│       └── chart.js-LICENSE.md
 ├── scripts/
 │   └── publish-data.js       publishes an export as the site's default data
 ├── backups/                your exported JSON snapshots go here
 └── README.md
 ```
+
+Chart.js is bundled directly in `js/vendor/` rather than loaded from a CDN,
+so the charts still work if you're offline, a network blocks the CDN, or
+an ad-blocker gets in the way. Google Fonts is still loaded remotely for
+the page's typefaces — if that's ever blocked, the page still works, it
+just falls back to a plain system font.
 
 
 ## Editing the starting sample data
