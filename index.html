@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wildcats — Team Stats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Roboto+Mono:wght@400;500;700&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+</head>
+<body>
+
+<header class="scoreboard">
+  <div class="scoreboard-inner">
+    <svg class="paw-watermark" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <ellipse cx="100" cy="130" rx="46" ry="38" fill="currentColor"/>
+      <ellipse cx="52" cy="78" rx="19" ry="24" fill="currentColor"/>
+      <ellipse cx="90" cy="52" rx="19" ry="25" fill="currentColor"/>
+      <ellipse cx="132" cy="52" rx="19" ry="25" fill="currentColor"/>
+      <ellipse cx="162" cy="80" rx="18" ry="23" fill="currentColor"/>
+    </svg>
+    <div class="team-eyebrow">
+      <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <ellipse cx="100" cy="130" rx="46" ry="38" fill="currentColor"/>
+        <ellipse cx="52" cy="78" rx="19" ry="24" fill="currentColor"/>
+        <ellipse cx="90" cy="52" rx="19" ry="25" fill="currentColor"/>
+        <ellipse cx="132" cy="52" rx="19" ry="25" fill="currentColor"/>
+        <ellipse cx="162" cy="80" rx="18" ry="23" fill="currentColor"/>
+      </svg>
+      Rec League &middot; Coed Slow-Pitch
+    </div>
+    <h1 class="team-name" id="teamNameDisplay">Wildcats</h1>
+    <p class="team-sub">Wildcats softball stats, game by game — batting lines, win-loss records, and career leaders.</p>
+    <div class="board" id="scoreboardBoard"></div>
+  </div>
+</header>
+
+<div class="backup-bar">
+  <div class="backup-bar-inner">
+    <span class="backup-note">Data is saved in this browser automatically. Back it up as a file whenever you like.</span>
+    <div class="btn-row">
+      <button class="btn small" id="exportBtn">Export Backup (.json)</button>
+      <label class="btn small" for="importInput" style="margin:0;">Import Backup</label>
+      <input type="file" id="importInput" accept="application/json" style="display:none;">
+    </div>
+  </div>
+</div>
+
+<main>
+
+  <section id="season-section">
+    <div class="section-head">
+      <h2>Season Roster</h2>
+      <div class="btn-row">
+        <span class="section-note" id="sectionNote">Totals are added up automatically from the game log below</span>
+        <button class="edit-toggle" id="editToggleBtn">Edit Data</button>
+      </div>
+    </div>
+    <div class="year-tabs" id="yearTabs"></div>
+    <div id="seasonFormSlot"></div>
+    <div class="season-summary" id="seasonSummary"></div>
+    <div id="rosterFormSlot"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr id="tableHead"></tr></thead>
+        <tbody id="rosterBody"></tbody>
+      </table>
+    </div>
+    <p class="save-note" id="saveNote"></p>
+  </section>
+
+  <section id="games-section">
+    <div class="section-head">
+      <h2>Game Log</h2>
+      <span class="section-note">Click a game to see the box score</span>
+    </div>
+    <div id="gameFormSlot"></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left;">Date</th>
+            <th style="text-align:left;">Opponent</th>
+            <th>Score</th>
+            <th class="nosort">Result</th>
+            <th class="actions-col" id="gameActionsHead" style="display:none;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="gamesBody"></tbody>
+      </table>
+    </div>
+    <div id="boxScoreSlot"></div>
+  </section>
+
+  <section id="leaders-section">
+    <div class="section-head">
+      <h2>Career Leaders</h2>
+      <span class="section-note">All seasons combined · min. 20 at-bats for AVG</span>
+    </div>
+    <div class="leaders-grid" id="leadersGrid"></div>
+  </section>
+
+  <section id="trend-section">
+    <div class="section-head">
+      <h2>Team Record by Season</h2>
+      <span class="section-note">Wins, losses, and win% over time</span>
+    </div>
+    <div class="trend-box"><canvas id="teamTrendChart"></canvas></div>
+  </section>
+
+</main>
+
+<footer>Built for the Wildcats &middot; add games in "Edit Data" — season totals update on their own</footer>
+<script src="js/app.js"></script>
+</body>
+</html>
